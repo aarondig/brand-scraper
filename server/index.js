@@ -329,7 +329,20 @@ function extractImages(root, baseUrl) {
     .slice(0, 5);
 }
 
-// Start server
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+// Serve static files from Vite's dist directory
+app.use(express.static(join(__dirname, '../../dist')));
+
+// Handle SPA routing - return index.html for all other routes
+app.get('*', (req, res) => {
+  res.sendFile(join(__dirname, '../../dist/index.html'));
 });
+
+// Start server only when not in Vercel environment
+if (process.env.VERCEL !== '1') {
+  app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
+  });
+}
+
+// Export the Express API for Vercel Serverless Functions
+module.exports = app;
