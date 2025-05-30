@@ -1,10 +1,18 @@
 import express from 'express';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { parse } from 'node-html-parser';
 import fetch from 'node-fetch';
-import { extractColorsFromUrl } from '../src/lib/colorExtractor.js';
+import puppeteer from 'puppeteer';
+import AIBrandAnalyzer from '../src/lib/aiBrandAnalyzer.js';
+
+// Load environment variables
+dotenv.config();
+
+// Initialize AI Brand Analyzer
+const aiBrandAnalyzer = new AIBrandAnalyzer(process.env.OPENAI_API_KEY);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -20,8 +28,10 @@ app.use(express.static(join(__dirname, '../dist')));
 // API Routes
 app.post('/api/analyze', async (req, res) => {
   const { url } = req.body;
+  console.log('Received request to analyze:', url);
 
   if (!url) {
+    console.error('No URL provided in request');
     return res.status(400).json({ error: 'URL is required' });
   }
 
@@ -29,7 +39,19 @@ app.post('/api/analyze', async (req, res) => {
     console.log('Starting AI-powered brand analysis for:', url);
     
     // Use AI to analyze the website
+    console.log('Calling aiBrandAnalyzer.analyzeWebsite...');
     const brandAnalysis = await aiBrandAnalyzer.analyzeWebsite(url);
+    console.log('Analysis completed, processing results...');
+    
+    // Check if there was an error in the analysis
+    if (brandAnalysis.error) {
+      console.error('Error in brand analysis:', JSON.stringify(brandAnalysis, null, 2));
+      return res.status(500).json({
+        error: 'Failed to analyze website',
+        details: brandAnalysis.details || 'Unknown error occurred',
+        timestamp: new Date().toISOString()
+      });
+    }
     
     // Extract basic page metadata
     const response = await fetch(url);
@@ -50,10 +72,10 @@ app.post('/api/analyze', async (req, res) => {
       favicon,
       // Extract colors for backward compatibility
       colors: [
-        brandAnalysis.colors.primary,
-        brandAnalysis.colors.secondary,
-        brandAnalysis.colors.accent,
-        ...(brandAnalysis.colors.neutrals || []).slice(0, 2)
+        brandAnalysis.colors?.primary,
+        brandAnalysis.colors?.secondary,
+        brandAnalysis.colors?.accent,
+        ...(brandAnalysis.colors?.neutrals || []).slice(0, 2)
       ].filter(Boolean),
       // Include the AI-generated brand analysis
       brandGuidelines: brandAnalysis,
@@ -63,9 +85,6 @@ app.post('/api/analyze', async (req, res) => {
     };
     
     console.log('AI brand analysis completed for:', url);
-    
-    console.log('Brand analysis completed for:', url);
-
     res.status(200).json(brandInfo);
   } catch (error) {
     console.error('Error analyzing website:', error);
