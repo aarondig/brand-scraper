@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "vercel-build": "vite build && mv dist/client/* dist && rm -rf dist/client",
+    "vercel-build": "vite build && (test -d dist/client && (mv dist/client/* dist && rmdir dist/client) || true)",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "server": "node server/index.js",
